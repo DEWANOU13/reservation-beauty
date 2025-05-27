@@ -103,7 +103,7 @@
                     <h3 class="text-xl font-bold text-pink-700 mb-2">Gel Polish</h3>
                     <ul class="text-gray-700 text-sm mb-2">
                         <li>Nature : <span class="font-semibold text-purple-600">30$</span></li>
-                        <li>Complet : <span class="font-semibold text-purple-600">15$</span></li>
+                        <li>Complete :: <span class="font-semibold text-purple-600">15$</span></li>
                     </ul>
                 </div>
                 <!-- Dépose -->
