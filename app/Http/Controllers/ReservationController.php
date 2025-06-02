@@ -26,14 +26,20 @@ public function store(Request $request)
         'client_phone' => 'required|string',
         'service_id' => 'required|exists:services,id',
         'nail_length' => 'required|in:long,medium,short',
-        'reserved_at' => 'required|date|after:now',
+        'date' => 'required|date',
+        'hour' => 'required',
         'payment_method' => 'required|in:cash,card',
     ]);
 
+    // Assemble la date et l'heure pour reserved_at
+    $date = $request->input('date'); // format Y-m-d
+    $hour = $request->input('hour'); // format HH:MM
+    $reserved_at = $date . ' ' . $hour . ':00';
+
     // Vérifie le créneau
-    $exists = Reservation::where('reserved_at', $request->reserved_at)->exists();
+    $exists = Reservation::where('reserved_at', $reserved_at)->exists();
     if ($exists) {
-        return back()->withErrors(['reserved_at' => 'Ce créneau est déjà réservé, veuillez en choisir un autre.'])->withInput();
+        return back()->withErrors(['hour' => 'Ce créneau est déjà réservé, veuillez en choisir un autre.'])->withInput();
     }
 
     $service = Service::findOrFail($request->service_id);
@@ -48,9 +54,9 @@ public function store(Request $request)
 
     // Ajouter un supplément selon l'option choisie
     if ($options === 'nail_art_simple') {
-        $price += 25;
+        $price += 5;
     } elseif ($options === 'nail_art_extra') {
-        $price += 40;
+        $price += 15;
     }
 
     $reservation = Reservation::create([
@@ -59,7 +65,7 @@ public function store(Request $request)
         'client_phone' => $request->client_phone,
         'service_id' => $request->service_id,
         'nail_length' => $request->nail_length,
-        'reserved_at' => $request->reserved_at,
+        'reserved_at' => $reserved_at,
         'options' => $options,
         'price' => $price,
         'payment_method' => $request->payment_method,
@@ -81,7 +87,7 @@ public function store(Request $request)
     session()->flash('reservation_details', $details);
 
     Mail::to($reservation->client_email)->send(new ReservationConfirmation($details, false));
-    Mail::to('dewanoueric@gmail.com')->send(new ReservationConfirmation($details, true));
+    Mail::to('ericdewanou13500@gmail.com')->send(new ReservationConfirmation($details, true));
 
     return redirect()->route('reservation.create');
 }

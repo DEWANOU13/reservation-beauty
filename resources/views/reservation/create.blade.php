@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Flatpickr CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
         body {
             background: linear-gradient(135deg, #ffe4ec 0%, #e0c3fc 100%);
@@ -98,17 +100,19 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('reservation.store') }}">
+        <form method="POST" action="{{ route('reservation.store') }}" class="needs-validation" novalidate>
             @csrf
 
             <div class="mb-3">
                 <label for="client_name" class="form-label">Votre nom</label>
                 <input type="text" class="form-control" id="client_name" name="client_name" value="{{ old('client_name') }}" placeholder="Entrez votre nom" required>
+                <div class="invalid-feedback">Ce champ est obligatoire</div>
             </div>
 
             <div class="mb-3">
                 <label for="client_email" class="form-label">Votre email</label>
                 <input type="email" class="form-control" id="client_email" name="client_email" value="{{ old('client_email') }}" placeholder="Entrez votre email" required>
+                <div class="invalid-feedback">Ce champ est obligatoire</div>
             </div>
 
             <div class="mb-3">
@@ -116,6 +120,7 @@
                 <input type="tel" class="form-control" id="client_phone" name="client_phone"
                        value="{{ old('client_phone') }}"
                        placeholder="Entrez votre numéro de téléphone" required>
+                <div class="invalid-feedback">Ce champ est obligatoire</div>
             </div>
 
             <div class="mb-3">
@@ -128,6 +133,7 @@
                         </option>
                     @endforeach
                 </select>
+                <div class="invalid-feedback">Ce champ est obligatoire</div>
             </div>
 
             <div class="mb-3">
@@ -138,11 +144,18 @@
                     <option value="medium" {{ old('nail_length') == 'medium' ? 'selected' : '' }}>Moyennes</option>
                     <option value="short" {{ old('nail_length') == 'short' ? 'selected' : '' }}>Courtes</option>
                 </select>
+                <div class="invalid-feedback">Ce champ est obligatoire</div>
             </div>
 
             <div class="mb-3">
-                <label for="reserved_at" class="form-label">Date et heure</label>
-                <input type="datetime-local" class="form-control" id="reserved_at" name="reserved_at" value="{{ old('reserved_at') }}" required>
+                <label for="date" class="form-label">Date</label>
+                <input type="text" id="date" name="date" class="form-control" placeholder="Choisissez une date" required autocomplete="off">
+                <div class="invalid-feedback">Ce champ est obligatoire</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Heure</label>
+                <div id="hour-picker" class="d-flex flex-wrap gap-2"></div>
+                <input type="hidden" name="hour" id="hour" required>
                 <div id="hour-warning" class="text-danger small mt-1" style="display:none;"></div>
             </div>
 
@@ -179,11 +192,27 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="successModalLabel">Succès</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title" id="successModalLabel">Réservation confirmée</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
                 </div>
                 <div class="modal-body">
-                    Votre réservation a été enregistrée avec succès !
+                    <div class="mb-3 text-success fw-bold">
+                        Votre réservation a été enregistrée avec succès !
+                    </div>
+                    @if(session('reservation_details'))
+                        @php $d = session('reservation_details'); @endphp
+                        <ul class="list-group mb-2">
+                            <li class="list-group-item"><strong>Nom :</strong> {{ $d['client_name'] }}</li>
+                            <li class="list-group-item"><strong>Email :</strong> {{ $d['client_email'] }}</li>
+                            <li class="list-group-item"><strong>Téléphone :</strong> {{ $d['client_phone'] }}</li>
+                            <li class="list-group-item"><strong>Service :</strong> {{ $d['service'] }}</li>
+                            <li class="list-group-item"><strong>Date & heure :</strong> {{ \Carbon\Carbon::parse($d['reserved_at'])->format('d/m/Y H:i') }}</li>
+                            <li class="list-group-item"><strong>Longueur :</strong> {{ ucfirst($d['nail_length']) }}</li>
+                            <li class="list-group-item"><strong>Options :</strong> {{ $d['options'] }}</li>
+                            <li class="list-group-item"><strong>Prix :</strong> {{ number_format($d['price'], 2) }} $</li>
+                            <li class="list-group-item"><strong>Paiement :</strong> {{ $d['payment_method'] == 'cash' ? 'Espèces' : 'Carte' }}</li>
+                        </ul>
+                    @endif
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
@@ -198,6 +227,8 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Flatpickr JS -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             @if(session('success'))
@@ -218,8 +249,8 @@
             @endforeach
         };
         const optionsSupp = {
-            nail_art_simple: 25,
-            nail_art_extra: 40
+            nail_art_simple: 5,
+            nail_art_extra: 15
         };
         function updatePrice() {
             const serviceId = document.getElementById('service_id').value;
@@ -240,28 +271,73 @@
         document.addEventListener('DOMContentLoaded', updatePrice);
     </script>
     <script>
-const reservedAt = document.getElementById('reserved_at');
+const hourPicker = document.getElementById('hour-picker');
+const hourInput = document.getElementById('hour');
 const hourWarning = document.getElementById('hour-warning');
 
-reservedAt.addEventListener('change', function() {
-    const date = new Date(this.value);
-    const day = date.getDay(); // 0=dimanche, 1=lundi, ..., 6=samedi
-    const hour = date.getHours();
+// Horaires d'ouverture
+const hours = {
+    0: ['12:00', '13:00', '14:00', '15:00', '16:00'], // Dimanche
+    1: ['08:00', '09:00', '10:00', '11:00', '12:00'], // Lundi
+    2: ['08:00', '09:00', '10:00', '11:00', '12:00'], // Mardi
+    3: ['08:00', '09:00', '10:00', '11:00', '12:00'], // Mercredi
+    4: ['08:00', '09:00', '10:00', '11:00', '12:00'], // Jeudi
+    5: ['08:00', '09:00', '10:00', '11:00', '12:00'], // Vendredi
+    6: ['08:00', '09:00', '10:00', '11:00', '12:00'], // Samedi
+};
 
-    let valid = false;
-    if (day === 0) { // Dimanche
-        valid = (hour >= 12 && hour < 17);
-    } else if (day >= 1 && day <= 6) { // Lundi-Samedi
-        valid = (hour >= 8 && hour < 12);
-    }
-    if (!valid) {
-        hourWarning.style.display = 'block';
-        hourWarning.textContent = "Choisissez une heure d'ouverture : Lundi-Samedi 8h-12h, Dimanche 12h-17h.";
-        reservedAt.value = '';
-    } else {
-        hourWarning.style.display = 'none';
+// Désactive les dates passées
+flatpickr("#date", {
+    minDate: "today",
+    inline: true,
+    dateFormat: "Y-m-d",
+    locale: "fr",
+    onChange: function(selectedDates, dateStr, instance) {
+        renderHourButtons(selectedDates[0]);
     }
 });
+
+function renderHourButtons(date) {
+    hourPicker.innerHTML = '';
+    hourInput.value = '';
+    hourWarning.style.display = 'none';
+    if (!date) return;
+    const day = date.getDay();
+    const available = hours[day] || [];
+    if (available.length === 0) {
+        hourWarning.style.display = 'block';
+        hourWarning.textContent = "Aucune heure disponible ce jour.";
+        return;
+    }
+    available.forEach(h => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-outline-primary';
+        btn.textContent = h;
+        btn.onclick = () => {
+            document.querySelectorAll('#hour-picker button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            hourInput.value = h;
+        };
+        hourPicker.appendChild(btn);
+    });
+}
+</script>
+<script>
+    // Bootstrap validation
+    (() => {
+        'use strict'
+        const forms = document.querySelectorAll('.needs-validation')
+        Array.from(forms).forEach(form => {
+            form.addEventListener('submit', event => {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+                form.classList.add('was-validated')
+            }, false)
+        })
+    })()
 </script>
 </body>
 </html>
